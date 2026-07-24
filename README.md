@@ -1,60 +1,58 @@
-# Persistent Red-Black Tree Implementation (C++)
+# Concurrent Thread-Safe LRU Cache Implementation (C++)
 
-This project implements a fully persistent Red-Black Tree in modern C++ (C++17) using path copying and structural sharing. Previous versions of the data structure are preserved and remain accessible after updates without performing full deep copies.
+I designed and implemented a generic, thread-safe Least Recently Used (LRU) cache in C++17. The project combines a custom doubly linked list with a std::unordered_map to guarantee O(1) time complexity for get and put operations while ensuring full thread safety under concurrent workloads.
 
-## Overview
+## Project Structure
 
-- `src/PersistentRBTree.hpp`: Immutable persistent Red-Black Tree implementation using `std::shared_ptr<const Node<K,V>>` for structural sharing.
-- `src/EphemeralRBTree.hpp`: Standard in-place mutating Red-Black Tree baseline.
-- `src/NaiveCopyRBTree.hpp`: Naive baseline that clones the full tree before each modification.
-- `test/test_rbtree.cpp`: Unit test suite verifying correctness, snapshot persistence, structural sharing, and balance invariants.
-- `bench/benchmark.cpp`: Performance comparison tool measuring insertion time across all three implementations.
+- src/ConcurrentLRUCache.hpp: Thread-safe LRU cache implementation using std::shared_mutex and a segmented striped variant for high-concurrency workloads.
+- src/BasicLRUCache.hpp: Single-threaded baseline implementation used to measure thread lock overhead.
+- test/test_lru_cache.cpp: Suite of unit tests and multi-threaded stress tests verifying concurrency guarantees and eviction behavior.
+- bench/benchmark_concurrency.cpp: Benchmarking utility measuring throughput under varying worker thread counts.
 
-## Requirements
+## How to Build and Run
 
-A C++ compiler supporting C++17 (g++, clang++, or MSVC cl).
-
-## Building and Running
-
-Using standard g++ compiler:
+You can compile using g++ with C++17 and thread support:
 
 ```bash
-g++ -O3 -std=c++17 test/test_rbtree.cpp -o test_rbtree
-./test_rbtree
+g++ -O3 -std=c++17 -pthread test/test_lru_cache.cpp -o test_lru_cache
+./test_lru_cache
 
-g++ -O3 -std=c++17 bench/benchmark.cpp -o benchmark
-./benchmark
+g++ -O3 -std=c++17 -pthread bench/benchmark_concurrency.cpp -o benchmark_concurrency
+./benchmark_concurrency
 ```
 
-Using CMake:
+Or build with CMake:
 
 ```bash
 mkdir build && cd build
 cmake ..
 make
-./test_rbtree
-./benchmark
+./test_lru_cache
+./benchmark_concurrency
 ```
 
-## Basic Usage Example
+## Quick Example
 
 ```cpp
-#include "PersistentRBTree.hpp"
+#include "ConcurrentLRUCache.hpp"
 #include <iostream>
+#include <string>
 
 int main() {
-    PersistentRBTree<int, std::string> t0;
-    auto t1 = t0.insert(10, "apple");
-    auto t2 = t1.insert(20, "banana");
+    ConcurrentLRUCache<int, std::string> cache(2);
 
-    // t1 remains unmodified
-    std::cout << "t1 size: " << t1.size() << "\n"; // 1
-    std::cout << "t2 size: " << t2.size() << "\n"; // 2
+    cache.put(1, "one");
+    cache.put(2, "two");
 
-    auto t3 = t2.remove(10);
-    // t2 still contains key 10
-    std::cout << "t2 contains 10: " << t2.contains(10) << "\n"; // true
-    std::cout << "t3 contains 10: " << t3.contains(10) << "\n"; // false
+    if (auto val = cache.get(1)) {
+        std::cout << "Found key 1: " << *val << "\n";
+    }
+
+    // Capacity is 2. Inserting key 3 evicts key 2 (least recently used)
+    cache.put(3, "three");
+
+    std::cout << "Has key 2: " << cache.contains(2) << "\n"; // false
+    std::cout << "Has key 3: " << cache.contains(3) << "\n"; // true
     return 0;
 }
 ```
