@@ -1,42 +1,29 @@
-# Implementation and Reflection Report: Disk-Backed B+ Tree Index
+# Implementation Report and Analysis: Persistent Red-Black Tree
 
-## Architecture and Design Choices
+I implemented a persistent Red-Black Tree in JavaScript using path copying and structural sharing.
 
-When building this disk-backed B+ Tree, my main goal was to move away from purely in-memory data structures and implement a storage engine component that simulates how databases handle datasets larger than available RAM.
+## How Path Copying Works
 
-I structured the system into three main layers: DiskManager, BufferPoolManager, and BPlusTree.
+When inserting or deleting a key, the algorithm traverses down from the root to the target leaf node. Instead of modifying node references in place like a standard binary search tree, the algorithm allocates new node objects along the path back up to the root.
 
-DiskManager handles low-level file I/O operations by opening a disk block file and writing 4096-byte fixed-size pages using Node.js fs.readSync and fs.writeSync. Each page has a unique pageId corresponding to its byte offset in the file.
+Nodes that are not on the search path remain untouched. The new path nodes point directly to those existing subtrees. This structural sharing allows old versions of the tree to stay immutable and accessible while only allocating O(log n) new nodes per update.
 
-BufferPoolManager manages a fixed pool of memory frames. Instead of keeping the entire index in RAM, it fetches 4096-byte page buffers as needed. It uses a Least Recently Used (LRU) eviction strategy to select unpinned victim frames when the buffer pool is full and a new page needs to be loaded.
+## Time and Memory Complexity Findings
 
-BPlusTree sits on top of the buffer pool. I designed it to store key-value entries in leaf nodes and child page IDs in internal nodes. To maintain search performance, leaf nodes are linked sequentially through nextPageId pointers, enabling fast range queries without traversing back up to internal parent nodes.
+Lookups take O(log n) time in both persistent and ephemeral trees because structural sharing preserves standard Red-Black height bounds.
 
-For binary serialization, I defined a page header format occupying the first 15 bytes of each 4096-byte buffer frame:
-- Page ID: 4 bytes
-- Leaf flag: 1 byte
-- Key count: 2 bytes
-- Next page ID: 4 bytes
-- Parent page ID: 4 bytes
+Insertion and deletion take O(log n) time and allocate O(log n) new nodes per operation.
 
-Following the header, keys and values or child page pointers are packed sequentially into the buffer.
+When comparing path copying against a naive deep-copy approach, naive copying clones all n nodes on every insert, taking O(n) time and allocating O(n) nodes per operation. In my benchmarks at 1000 keys, naive copy took over 200 ms per run, while path copying finished in under 1 ms.
 
-## Performance Analysis and Block I/O Profile
+Memory usage for persistent trees scales with the total number of versions kept alive. Keeping 50000 historical tree roots retains around 50 MB of heap memory because intermediate node objects stay referenced in memory.
 
-I ran performance tests with 100, 500, 2000, and 5000 keys using a buffer pool size of 10 frames to evaluate disk read and write behavior under memory pressure.
+## Student Reflection and Debugging Challenges
 
-During insertion of 5000 keys with a max node degree of 8, the index performed 5714 disk write operations and 3282 disk read operations. The high disk activity occurs because filling a leaf triggers node splits that propagate up to parent nodes, requiring dirty buffer pages to be written back to disk during LRU frame replacement.
+The most difficult part of this project was implementing non-mutating deletion rebalancing.
 
-Point lookups for 1000 random keys took only 14.2 milliseconds total. Because top-level internal nodes remain pinned or frequently accessed in the buffer pool LRU list, root-to-leaf traversals hit the buffer pool cache most of the time, avoiding unnecessary disk reads.
+In standard Red-Black tree deletion, removing a black node creates a black-height deficit on that branch. Translating the imperative CLRS deletion cases into functional path copying required carefully returning both a new node reference and a boolean deficit flag back up the recursive call stack.
 
-Range queries demonstrated the primary architectural advantage of B+ Trees over standard B-Trees. Because leaf nodes maintain nextPageId links, scanning keys from startKey to endKey only reads consecutive leaf pages in sequence without revisiting upper internal nodes.
+I ran into a persistent bug during randomized stress testing where black-height invariants failed after sequential deletes. While tracing through case 4 rotation, I realized my first attempt kept the original parent node at the top of the subtree instead of promoting the sibling node. Once I fixed the rotation shape so the sibling became the new subtree root with the original node as its child, the tree passed all 60 stress test seeds.
 
-## Personal Reflection and Debugging Challenges
-
-Building a disk-backed index required much more careful state tracking than standard in-memory binary trees.
-
-One major bug I encountered during initial testing was a buffer pool pin leak that caused test failures with the error "All buffer frames are pinned". When I first implemented _saveNode, I called fetchPage to get the frame for writing, but forgot to call unpinPage afterward. Every time a node was split or updated, its pin count incremented by 1 and never decremented. Within a few insertions, all 10 buffer frames were permanently pinned, preventing the buffer pool from evicting frames. I fixed this by ensuring every fetchPage call is paired with an unpinPage call once serialization finishes.
-
-Another challenge was binary offset calculation during node serialization. Variable-length string values required storing a 2-byte length prefix before each string payload inside the 4096-byte buffer frame. In my first draft, I forgot to advance the buffer offset pointer by the string byte length, causing subsequent keys to overwrite the string data. I caught this while writing unit tests for string values and fixed the offset calculation arithmetic.
-
-This project gave me practical insight into database storage engines, page serialization, and memory buffer management.
+Using JavaScript meant garbage collection handled freeing unreferenced nodes automatically, making version snapshots lightweight and safe to access asynchronously without memory corruption.

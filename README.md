@@ -1,16 +1,17 @@
-# Persistent Memory-Mapped B+ Tree Implementation (JavaScript)
+# Persistent Red-Black Tree
 
-I implemented a disk-backed B+ Tree index in Node.js using fixed 4096-byte pages and an LRU buffer pool manager. The project serializes nodes directly to binary disk buffers, supporting point lookups, range queries, node splitting, and node deletion.
+I built a persistent Red-Black Tree in JavaScript. Insert and delete methods never mutate the original tree object. Instead they return a new root pointer and reuse unmodified subtrees from older versions through path copying.
 
-## Project Structure
+## Project Files
 
-- src/DiskManager.js: Manages synchronous 4096-byte binary page reads and writes to disk block files.
-- src/BufferPoolManager.js: Implements a page frame cache with LRU eviction policy to control memory footprint.
-- src/BPlusTree.js: Implements B+ Tree indexing logic, leaf/internal node splits, and binary node serialization.
-- test/bplustree.test.js: Test suite covering point search, leaf splitting, range queries, key updates, deletion, and 500-key buffer pool stress tests.
-- performance.js: Benchmark script measuring disk block I/O reads/writes, search latency, and memory heap usage.
+- src/PersistentRBTree.js: Main persistent Red-Black Tree implementation using path copying.
+- src/EphemeralRBTree.js: Standard mutating Red-Black Tree baseline.
+- src/NaiveCopyRBTree.js: Deep copy baseline that clones every node on update.
+- test/rbtree.test.js: Test suite covering insertions, deletions, structural sharing, and invariants.
+- stress.js: Randomized fuzz test script running 60 seeds against JavaScript Map reference.
+- performance.js: Benchmark script measuring latency and heap usage.
 
-## Building and Running
+## Running Tests and Benchmarks
 
 Run unit tests:
 
@@ -18,32 +19,28 @@ Run unit tests:
 npm test
 ```
 
-Run performance benchmark:
+Run stress fuzz tests:
+
+```bash
+npm run stress
+```
+
+Run benchmarks:
 
 ```bash
 npm run bench
 ```
 
-## Usage Example
+## Quick Example
 
 ```javascript
-const path = require('path');
-const { DiskManager } = require('./src/DiskManager');
-const { BufferPoolManager } = require('./src/BufferPoolManager');
-const { BPlusTree } = require('./src/BPlusTree');
+const { PersistentRBTree } = require('./src/PersistentRBTree');
 
-const disk = new DiskManager(path.join(__dirname, 'data.db'));
-const bpm = new BufferPoolManager(disk, 10);
-const tree = new BPlusTree(bpm, 4);
+let t1 = new PersistentRBTree();
+t1 = t1.insert(10, 'apple');
 
-tree.insert(10, 'apple');
-tree.insert(20, 'banana');
+let t2 = t1.insert(20, 'banana');
 
-console.log(tree.search(10));
-console.log(tree.search(20));
-
-const range = tree.rangeSearch(10, 20);
-console.log(range);
-
-disk.close();
+console.log(t1.get(20));
+console.log(t2.get(20));
 ```

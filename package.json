@@ -1,11 +1,12 @@
 {
-  "name": "persistent-bplus-tree",
+  "name": "persistent-rbtree",
   "version": "1.0.0",
-  "description": "Disk-backed B+ Tree with binary page serialization and LRU buffer pool manager",
-  "main": "src/BPlusTree.js",
+  "description": "Persistent Red-Black Tree via path copying and structural sharing",
+  "main": "src/PersistentRBTree.js",
   "scripts": {
-    "test": "node test/bplustree.test.js",
-    "bench": "node performance.js"
+    "test": "node test/rbtree.test.js",
+    "bench": "node performance.js",
+    "stress": "node stress.js"
   },
   "license": "ISC"
 }
