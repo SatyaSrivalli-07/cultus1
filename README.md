@@ -48,11 +48,10 @@ int main() {
         std::cout << "Found key 1: " << *val << "\n";
     }
 
-    // Capacity is 2. Inserting key 3 evicts key 2 (least recently used)
     cache.put(3, "three");
 
-    std::cout << "Has key 2: " << cache.contains(2) << "\n"; // false
-    std::cout << "Has key 3: " << cache.contains(3) << "\n"; // true
+    std::cout << "Has key 2: " << cache.contains(2) << "\n";
+    std::cout << "Has key 3: " << cache.contains(3) << "\n";
     return 0;
 }
 ```

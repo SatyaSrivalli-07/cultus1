@@ -34,8 +34,8 @@ void test_eviction_policy() {
     ConcurrentLRUCache<int, std::string> cache(2);
     cache.put(1, "one");
     cache.put(2, "two");
-    cache.get(1); // 1 is now most recently used, 2 is least recently used
-    cache.put(3, "three"); // Should evict 2
+    cache.get(1);
+    cache.put(3, "three");
 
     assert(cache.get(1) == "one");
     assert(!cache.get(2).has_value());
