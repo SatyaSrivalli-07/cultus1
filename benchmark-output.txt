@@ -1,0 +1,22 @@
+=== Insert throughput & memory: persistent (keeping every version) vs ephemeral ===
+
+size	persistent(ms)	ephemeral(ms)	persistent MB	ephemeral MB
+1000	6.6		2.9		0.68		0.08
+5000	18.3		6.9		3.96		0.35
+20000	47.9		26.2		18.34		1.40
+50000	233.9		63.3		50.01		0.02
+
+=== Persistent (path-copying) vs naive full-deep-copy, small sizes only ===
+
+size	persistent(ms)	naive-copy(ms)	persistent MB	naive-copy MB
+200	0.0		2.1		0.10		0.00
+1000	0.3		225.2		0.64		0.08
+3000	1.0		103.0		2.25		0.24
+
+=== Search, single version, after building each tree ===
+
+size	persistent search(ms/10k)	ephemeral search(ms/10k)
+1000	1.8			3.9
+5000	1.1			2.5
+20000	1.9			2.1
+50000	3.1			3.5

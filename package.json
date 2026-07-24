@@ -1,0 +1,13 @@
+{
+  "name": "persistent-rbtree",
+  "version": "1.0.0",
+  "description": "Persistent red-black tree via path copying, plus ephemeral and naive-copy baselines for benchmarking",
+  "main": "src/PersistentRBTree.js",
+  "scripts": {
+    "test": "node test/rbtree.test.js",
+    "bench": "node --expose-gc performance.js",
+    "stress": "node stress.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
