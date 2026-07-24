@@ -1,57 +1,49 @@
-# Concurrent Thread-Safe LRU Cache Implementation (C++)
+# Persistent Memory-Mapped B+ Tree Implementation (JavaScript)
 
-I designed and implemented a generic, thread-safe Least Recently Used (LRU) cache in C++17. The project combines a custom doubly linked list with a std::unordered_map to guarantee O(1) time complexity for get and put operations while ensuring full thread safety under concurrent workloads.
+I implemented a disk-backed B+ Tree index in Node.js using fixed 4096-byte pages and an LRU buffer pool manager. The project serializes nodes directly to binary disk buffers, supporting point lookups, range queries, node splitting, and node deletion.
 
 ## Project Structure
 
-- src/ConcurrentLRUCache.hpp: Thread-safe LRU cache implementation using std::shared_mutex and a segmented striped variant for high-concurrency workloads.
-- src/BasicLRUCache.hpp: Single-threaded baseline implementation used to measure thread lock overhead.
-- test/test_lru_cache.cpp: Suite of unit tests and multi-threaded stress tests verifying concurrency guarantees and eviction behavior.
-- bench/benchmark_concurrency.cpp: Benchmarking utility measuring throughput under varying worker thread counts.
+- src/DiskManager.js: Manages synchronous 4096-byte binary page reads and writes to disk block files.
+- src/BufferPoolManager.js: Implements a page frame cache with LRU eviction policy to control memory footprint.
+- src/BPlusTree.js: Implements B+ Tree indexing logic, leaf/internal node splits, and binary node serialization.
+- test/bplustree.test.js: Test suite covering point search, leaf splitting, range queries, key updates, deletion, and 500-key buffer pool stress tests.
+- performance.js: Benchmark script measuring disk block I/O reads/writes, search latency, and memory heap usage.
 
-## How to Build and Run
+## Building and Running
 
-You can compile using g++ with C++17 and thread support:
-
-```bash
-g++ -O3 -std=c++17 -pthread test/test_lru_cache.cpp -o test_lru_cache
-./test_lru_cache
-
-g++ -O3 -std=c++17 -pthread bench/benchmark_concurrency.cpp -o benchmark_concurrency
-./benchmark_concurrency
-```
-
-Or build with CMake:
+Run unit tests:
 
 ```bash
-mkdir build && cd build
-cmake ..
-make
-./test_lru_cache
-./benchmark_concurrency
+npm test
 ```
 
-## Quick Example
+Run performance benchmark:
 
-```cpp
-#include "ConcurrentLRUCache.hpp"
-#include <iostream>
-#include <string>
+```bash
+npm run bench
+```
 
-int main() {
-    ConcurrentLRUCache<int, std::string> cache(2);
+## Usage Example
 
-    cache.put(1, "one");
-    cache.put(2, "two");
+```javascript
+const path = require('path');
+const { DiskManager } = require('./src/DiskManager');
+const { BufferPoolManager } = require('./src/BufferPoolManager');
+const { BPlusTree } = require('./src/BPlusTree');
 
-    if (auto val = cache.get(1)) {
-        std::cout << "Found key 1: " << *val << "\n";
-    }
+const disk = new DiskManager(path.join(__dirname, 'data.db'));
+const bpm = new BufferPoolManager(disk, 10);
+const tree = new BPlusTree(bpm, 4);
 
-    cache.put(3, "three");
+tree.insert(10, 'apple');
+tree.insert(20, 'banana');
 
-    std::cout << "Has key 2: " << cache.contains(2) << "\n";
-    std::cout << "Has key 3: " << cache.contains(3) << "\n";
-    return 0;
-}
+console.log(tree.search(10));
+console.log(tree.search(20));
+
+const range = tree.rangeSearch(10, 20);
+console.log(range);
+
+disk.close();
 ```

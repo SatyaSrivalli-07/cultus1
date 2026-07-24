@@ -1,0 +1,11 @@
+{
+  "name": "persistent-bplus-tree",
+  "version": "1.0.0",
+  "description": "Disk-backed B+ Tree with binary page serialization and LRU buffer pool manager",
+  "main": "src/BPlusTree.js",
+  "scripts": {
+    "test": "node test/bplustree.test.js",
+    "bench": "node performance.js"
+  },
+  "license": "ISC"
+}
