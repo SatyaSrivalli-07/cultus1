@@ -1,53 +1,60 @@
-Persistent Red-Black Tree
+# Persistent Red-Black Tree Implementation (C++)
 
-A red-black tree where insert and delete never mutate the tree you called
-them on. Both return a new tree, and anything that wasn't on the path
-from the root down to the change is shared with the old version instead
-of being copied. So old snapshots stay valid and readable forever, at a
-cost of roughly O(log n) new nodes per operation instead of O(n).
+This project implements a fully persistent Red-Black Tree in modern C++ (C++17) using path copying and structural sharing. Previous versions of the data structure are preserved and remain accessible after updates without performing full deep copies.
 
-Written in JavaScript (src/PersistentRBTree.js is the main one). There's
-also an ordinary mutating red-black tree in src/EphemeralRBTree.js and a
-"just deep-copy the whole thing" version in src/NaiveCopyRBTree.js -
-those two exist to benchmark against, not because you'd actually want to
-use them for anything.
+## Overview
 
-    const { PersistentRBTree } = require('./src/PersistentRBTree');
+- `src/PersistentRBTree.hpp`: Immutable persistent Red-Black Tree implementation using `std::shared_ptr<const Node<K,V>>` for structural sharing.
+- `src/EphemeralRBTree.hpp`: Standard in-place mutating Red-Black Tree baseline.
+- `src/NaiveCopyRBTree.hpp`: Naive baseline that clones the full tree before each modification.
+- `test/test_rbtree.cpp`: Unit test suite verifying correctness, snapshot persistence, structural sharing, and balance invariants.
+- `bench/benchmark.cpp`: Performance comparison tool measuring insertion time across all three implementations.
 
-    let t = new PersistentRBTree();
-    t = t.insert(10, 'hello');
-    const t2 = t.insert(20, 'world'); // t is untouched, t2 has both keys
+## Requirements
 
-    t.get(20);   // undefined
-    t2.get(20);  // 'world'
+A C++ compiler supporting C++17 (g++, clang++, or MSVC cl).
 
-    const t3 = t2.delete(10);
-    t2.keys();   // [10, 20] - still fine
-    t3.keys();   // [20]
+## Building and Running
 
-Other stuff on there: get(key), has(key), keys() (sorted), entries(),
-size(), and blackHeight() which walks the tree checking the two
-red-black invariants and throws if either is broken (used a lot in the
-test suite, not something you'd call in normal use).
+Using standard g++ compiler:
 
-Tests: node test/rbtree.test.js - 16 assertion-based checks, covers
-insertion, all three delete shapes (leaf / one child / two children),
-cascading rebalancing, immutability of old versions after later edits,
-structural sharing, and a concurrent-async-reads check.
+```bash
+g++ -O3 -std=c++17 test/test_rbtree.cpp -o test_rbtree
+./test_rbtree
 
-Benchmark: node --expose-gc performance.js - compares insert/search time
-and memory across the persistent, ephemeral, and naive-copy
-implementations at a few different sizes. Write-up with the actual
-numbers and what they mean is in performance-analysis.md.
+g++ -O3 -std=c++17 bench/benchmark.cpp -o benchmark
+./benchmark
+```
 
-There's also stress.js, which isn't part of the graded suite - it's a
-randomized fuzz test I used while building this to catch bugs the fixed
-test cases wouldn't have found (runs 60 different random seeds against a
-plain Map as the reference). Left it in since it's genuinely useful if
-you're modifying the delete logic.
+Using CMake:
 
-What's not here: no on-disk persistence (everything lives in memory for
-the process lifetime), and "thread safety" is really "the data structure
-is immutable so it would be thread-safe in a language with real threads"
-- see NOTES.md for the caveat on that, since Node itself is
-single-threaded and I can't actually test concurrent memory access here.
+```bash
+mkdir build && cd build
+cmake ..
+make
+./test_rbtree
+./benchmark
+```
+
+## Basic Usage Example
+
+```cpp
+#include "PersistentRBTree.hpp"
+#include <iostream>
+
+int main() {
+    PersistentRBTree<int, std::string> t0;
+    auto t1 = t0.insert(10, "apple");
+    auto t2 = t1.insert(20, "banana");
+
+    // t1 remains unmodified
+    std::cout << "t1 size: " << t1.size() << "\n"; // 1
+    std::cout << "t2 size: " << t2.size() << "\n"; // 2
+
+    auto t3 = t2.remove(10);
+    // t2 still contains key 10
+    std::cout << "t2 contains 10: " << t2.contains(10) << "\n"; // true
+    std::cout << "t3 contains 10: " << t3.contains(10) << "\n"; // false
+    return 0;
+}
+```
